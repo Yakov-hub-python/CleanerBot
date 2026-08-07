@@ -87,11 +87,20 @@ bot.on('edited_message', async (ctx) => {
         console.error('Ошибка при обработке отредактированного сообщения:', err.message);
     }
 });
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+// ===== HTTP-СЕРВЕР ДЛЯ RENDER =====
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Бот "Античный Градоначальник" работает! 🏛️');
+});
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => console.log(`✅ HTTP-сервер запущен на порту ${PORT}`));
+
 bot.launch()
     .then(() => console.log('🤖 Бот запущен и защищает чаты от мата!'))
     .catch(err => {
         console.error('❌ Ошибка запуска:', err);
         process.exit(1);
     });
+
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
