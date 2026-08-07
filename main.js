@@ -1,4 +1,5 @@
 import { Telegraf } from 'telegraf';
+import express from 'express';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -9,98 +10,110 @@ if (!TOKEN) {
 }
 
 const bot = new Telegraf(TOKEN);
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// ---------- МАССИВ ПЛОХИХ СЛОВ ----------
 const badWords = [
-    'хуй', 'хуя', 'хую', 'хуем', 'хуе', 'хуи',
-    'пизда', 'пизды', 'пизде', 'пизду', 'пиздой',
-    'блядь', 'бляди', 'блядью', 'блядский',
-    'ебал', 'ебала', 'ебали', 'ебать', 'ебучий',
-    'гандон', 'гандона', 'гандону',
-    'мудила', 'мудило', 'мудень',
-    'пидор', 'пидора', 'пидору', 'пидорский',
-    'сучка', 'сучки', 'сучку', 'сучкой',
-    'шлюха', 'шлюхи', 'шлюху', 'шлюхой',
-    'залупа', 'залупы', 'залупу',
-    'пездюк', 'пездюка',
-    'xуй', 'xуя',
-    'пuзда',
-    'бляд', 'блять', 'блят',
-    'ебат', 'ебац', 'ебатся',
-    'пидр', 'пидра',
-    'сукa', 'сукка', 'сука',
-    "хуй", "хуя", "хую", "хуем", "хуе", "хуи", "хуё",
-    "пизд", "пизда", "пизде", "пизду", "пиздой", "пиздо",
-    "бля", "блять", "блядь", "бляди", "бляд",
-    "ёб", "еб", "йоб", "еба", "ебу", "ебё", "ёба",
-    "залуп", "муд", "манда", "петух", "гандон", "пидр",
-    "шлюх", "курв", "сук", "суч",
-    "нах", "нахуй", "похуй", "схуя", "дохуя", "охуй",
-    "ебать", "ебаться", "ебану", "ебли", "ебал", "ебла",
-    "пиздец", "пизде", "распизд", "пиздю",
-    "блядский", "блядство", "блядун",
-    "заеб", "заеба", "доеб", "отъеб", "приеб",
-    "мудак", "мудила", "мудло",
-    "пидор", "пидорас", "пидрила",
-    "гандон", "гондон",
-    "шмара", "шлюха", "курва",
-    "сука", "сучий", "сучка",
-    "проститут", "простит"
+    'хуй', 'хуя', 'хую', 'хуем', 'хуе', 'хуи', 'хуё',
+    'пизд', 'пизда', 'пизде', 'пизду', 'пиздой', 'пиздо',
+    'бля', 'блять', 'блядь', 'бляди', 'бляд',
+    'ёб', 'еб', 'йоб', 'еба', 'ебу', 'ебё', 'ёба',
+    'залуп', 'муд', 'манда', 'петух', 'гандон', 'пидр',
+    'шлюх', 'курв', 'сук', 'суч',
+    'нах', 'нахуй', 'похуй', 'схуя', 'дохуя', 'охуй',
+    'ебать', 'ебаться', 'ебану', 'ебли', 'ебал', 'ебла',
+    'пиздец', 'пизде', 'распизд', 'пиздю',
+    'блядский', 'блядство', 'блядун',
+    'заеб', 'заеба', 'доеб', 'отъеб', 'приеб',
+    'мудак', 'мудила', 'мудло',
+    'пидор', 'пидорас', 'пидрила',
+    'гандон', 'гондон',
+    'шмара', 'шлюха', 'курва',
+    'сука', 'сучий', 'сучка',
+    'проститут', 'простит'
 ];
+
+// ---------- ФУНКЦИЯ ПРОВЕРКИ ----------
 function containsBadWords(text) {
     if (!text) return false;
     const lowerText = text.toLowerCase();
     return badWords.some(word => lowerText.includes(word.toLowerCase()));
 }
+
+// ---------- ОБРАБОТЧИКИ БОТА ----------
 bot.start((ctx) => {
     const userName = ctx.from.first_name || 'друг';
     ctx.reply(
         `Привет, ${userName}! 👋\n` +
-        `Я тестовый бот на Telegraf.js.\n` +
-        `Для полной работоспособности дайте мне права администратора\n` +
-        `и разрешение на удаление сообщений. Больше ничего не нужно!`
+        `Я бот-цензор. Удаляю сообщения с матом в чате.\n` +
+        `Для работы дайте мне права администратора!`
     );
 });
+
 bot.on('text', async (ctx) => {
     if (ctx.from.is_bot) return;
+    
     const text = ctx.message.text || '';
-    if (!text) return;
-    if (text.startsWith('/')) return;
+    if (!text || text.startsWith('/')) return;
+    
     if (!containsBadWords(text)) return;
+    
     try {
         await ctx.deleteMessage();
         await ctx.reply(`⚠️ ${ctx.from.first_name}, пожалуйста, не используйте нецензурную лексику!`);
-        console.log(`🚨 Нарушение от ${ctx.from.id} (${ctx.from.username || 'без юзернейма'}) в ${chatType}: ${text}`);
+        console.log(`🚨 Нарушение от ${ctx.from.id} (${ctx.from.username || 'без юзернейма'}): ${text}`);
     } catch (err) {
-        console.error('Ошибка при обработке сообщения:', err.message);
+        console.error('Ошибка при удалении:', err.message);
     }
 });
+
 bot.on('edited_message', async (ctx) => {
     if (ctx.from.is_bot) return;
+    
     const message = ctx.editedMessage;
     const text = message.text || message.caption || '';
     if (!text) return;
+    
     if (!containsBadWords(text)) return;
+    
     try {
         await ctx.deleteMessage();
         await ctx.reply(`⚠️ ${message.from.first_name}, пожалуйста, не используйте нецензурную лексику!`);
-        console.log(`🚨 Нарушение (edited) от ${message.from.id} (${message.from.username || 'без юзернейма'}) в ${chatType}: ${text}`);
+        console.log(`🚨 Нарушение (edited) от ${message.from.id}: ${text}`);
     } catch (err) {
-        console.error('Ошибка при обработке отредактированного сообщения:', err.message);
+        console.error('Ошибка при удалении edited:', err.message);
     }
 });
-// ===== HTTP-СЕРВЕР ДЛЯ RENDER =====
-const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Бот "Античный Градоначальник" работает! 🏛️');
-});
-const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`✅ HTTP-сервер запущен на порту ${PORT}`));
 
+// ---------- ЗАПУСК БОТА (POLLING) ----------
 bot.launch()
     .then(() => console.log('🤖 Бот запущен и защищает чаты от мата!'))
     .catch(err => {
-        console.error('❌ Ошибка запуска:', err);
+        console.error('❌ Ошибка запуска бота:', err);
         process.exit(1);
     });
 
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+// ---------- EXPRESS СЕРВЕР ДЛЯ HEALTH CHECK ----------
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.listen(PORT, () => {
+    console.log(`💓 Health check сервер запущен на порту ${PORT}`);
+    console.log(`🔗 Проверить статус: http://localhost:${PORT}/health`);
+});
+
+// ---------- ГРАЦИОЗНОЕ ЗАВЕРШЕНИЕ ----------
+process.once('SIGINT', () => {
+    bot.stop('SIGINT');
+    process.exit(0);
+});
+process.once('SIGTERM', () => {
+    bot.stop('SIGTERM');
+    process.exit(0);
+});
