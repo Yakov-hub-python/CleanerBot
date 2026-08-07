@@ -1,0 +1,13 @@
+{
+  "name": "telegraf-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node main.js"
+  },
+  "dependencies": {
+    "telegraf": "^4.16.3",
+    "russian-bad-word-censor": "^1.0.0",
+    "dotenv": "^16.4.5"
+  }
+}
