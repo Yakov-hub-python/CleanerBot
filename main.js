@@ -1,5 +1,5 @@
 import { Telegraf } from 'telegraf';
-import express from 'express';
+import http from 'http';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -10,7 +10,6 @@ if (!TOKEN) {
 }
 
 const bot = new Telegraf(TOKEN);
-const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ---------- МАССИВ ПЛОХИХ СЛОВ ----------
@@ -34,11 +33,12 @@ const badWords = [
     'проститут', 'простит'
 ];
 
-// ---------- ФУНКЦИЯ ПРОВЕРКИ ----------
+// ---------- ФУНКЦИЯ ПРОВЕРКИ (с регулярным выражением) ----------
+const badWordsRegex = new RegExp(`\\b(${badWords.join('|')})\\b`, 'i');
+
 function containsBadWords(text) {
     if (!text) return false;
-    const lowerText = text.toLowerCase();
-    return badWords.some(word => lowerText.includes(word.toLowerCase()));
+    return badWordsRegex.test(text);
 }
 
 // ---------- ОБРАБОТЧИКИ БОТА ----------
@@ -51,14 +51,14 @@ bot.start((ctx) => {
     );
 });
 
-bot.on('text', async (ctx) => {
+bot.on('message', async (ctx) => {
     if (ctx.from.is_bot) return;
-    
-    const text = ctx.message.text || '';
+
+    const text = ctx.message.text || ctx.message.caption || '';
     if (!text || text.startsWith('/')) return;
-    
+
     if (!containsBadWords(text)) return;
-    
+
     try {
         await ctx.deleteMessage();
         await ctx.reply(`⚠️ ${ctx.from.first_name}, пожалуйста, не используйте нецензурную лексику!`);
@@ -70,13 +70,13 @@ bot.on('text', async (ctx) => {
 
 bot.on('edited_message', async (ctx) => {
     if (ctx.from.is_bot) return;
-    
+
     const message = ctx.editedMessage;
     const text = message.text || message.caption || '';
     if (!text) return;
-    
+
     if (!containsBadWords(text)) return;
-    
+
     try {
         await ctx.deleteMessage();
         await ctx.reply(`⚠️ ${message.from.first_name}, пожалуйста, не используйте нецензурную лексику!`);
@@ -94,16 +94,24 @@ bot.launch()
         process.exit(1);
     });
 
-// ---------- EXPRESS СЕРВЕР ДЛЯ HEALTH CHECK ----------
-app.get('/health', (req, res) => {
-    res.status(200).json({
-        status: 'ok',
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString()
-    });
+// ---------- HTTP СЕРВЕР ДЛЯ HEALTH CHECK (вместо Express) ----------
+const server = http.createServer((req, res) => {
+    // Обрабатываем только GET запросы к /health
+    if (req.method === 'GET' && req.url === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            status: 'ok',
+            uptime: process.uptime(),
+            timestamp: new Date().toISOString()
+        }));
+    } else {
+        // Для всех остальных запросов отдаём 404
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
+    }
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`💓 Health check сервер запущен на порту ${PORT}`);
     console.log(`🔗 Проверить статус: http://localhost:${PORT}/health`);
 });
@@ -111,9 +119,9 @@ app.listen(PORT, () => {
 // ---------- ГРАЦИОЗНОЕ ЗАВЕРШЕНИЕ ----------
 process.once('SIGINT', () => {
     bot.stop('SIGINT');
-    process.exit(0);
+    server.close(() => process.exit(0));
 });
 process.once('SIGTERM', () => {
     bot.stop('SIGTERM');
-    process.exit(0);
+    server.close(() => process.exit(0));
 });
